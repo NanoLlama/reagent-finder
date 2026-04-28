@@ -1,0 +1,36 @@
+{
+  "exported": "2026-04-28T15:18:44.169Z",
+  "primary": [],
+  "secondary": [],
+  "protein": [
+    {
+      "Internal ID": "test",
+      "Protein / Reagent Name": "mouse transferrin receptor",
+      "Target / Specificity": "test",
+      "Company / Vendor": "Genscript",
+      "Catalog Number": "custom",
+      "Lot Number": "",
+      "Purchase Date": "",
+      "Expression System": "",
+      "Protein Class": "transmembrane receptor",
+      "MW (kDa)": "",
+      "Conjugate / Modification": "none",
+      "Concentration": "0.5 mg/mL",
+      "Amount / Volume": "1 mL",
+      "Working Concentration": "",
+      "Known Reactivity": "",
+      "Intended Application(s)": "immunopanning, ELISA, BLI",
+      "Expiration Date": "",
+      "# Aliquots Remaining": "3",
+      "Storage Temp": "-80°C",
+      "Location / Freezer": "Vincent VanSnow",
+      "Box Identifier": "Box1",
+      "Source / Ordered By": "",
+      "Notes / Special Handling": "",
+      "Validated By": "TJE",
+      "Validation Date": ""
+    }
+  ],
+  "elisa": [],
+  "chemical": []
+}
