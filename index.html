@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Lab Reagent Viewer</title>
+<style>
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #f5f4f1;
+  --surface:   #ffffff;
+  --border:    #e0ddd8;
+  --accent:    #1a4a3a;
+  --text:      #1a1a18;
+  --muted:     #6b6860;
+  --dim:       #a8a59e;
+  --temp4:     #1d4ed8;
+  --temp4-bg:  #dbeafe;
+  --tempn20:   #4338ca;
+  --tempn20-bg:#e0e7ff;
+  --tempn80:   #6d28d9;
+  --tempn80-bg:#ede9fe;
+  --temprt:    #92400e;
+  --temprt-bg: #fef3c7;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* ── Layout: fixed header + scrollable list ── */
+#app { display: flex; flex-direction: column; height: 100%; }
+
+/* ── Header ── */
+.hdr {
+  background: var(--accent);
+  color: white;
+  padding: 12px 16px 10px;
+  padding-top: calc(12px + var(--safe-top));
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.hdr-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.hdr-sub {
+  font-size: 12px;
+  opacity: 0.65;
+  margin-top: 1px;
+}
+
+/* ── Search bar ── */
+.search-wrap {
+  background: var(--accent);
+  padding: 8px 16px 12px;
+  flex-shrink: 0;
+}
+.search-input {
+  width: 100%;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px 9px 36px;
+  color: white;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='7' stroke='rgba(255,255,255,0.6)' stroke-width='2'/%3E%3Cpath d='m16.5 16.5 4 4' stroke='rgba(255,255,255,0.6)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 12px center;
+}
+.search-input::placeholder { color: rgba(255,255,255,0.5); }
+.search-input:focus { background-color: rgba(255,255,255,0.22); }
+
+/* ── Filter tabs ── */
+.filter-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-btn {
+  flex-shrink: 0;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.filter-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.filter-count {
+  display: inline-block;
+  background: #e8ede9;
+  color: var(--accent);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.filter-btn.active .filter-count {
+  background: var(--accent);
+  color: white;
+}
+
+/* ── Main scroll area ── */
+#list-area {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── List items ── */
+.section-header {
+  padding: 6px 16px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  gap: 12px;
+  transition: background 0.1s;
+  text-decoration: none;
+  color: inherit;
+}
+.list-item:active { background: #f0ede8; }
+
+.item-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.icon-primary   { background: #e0f0e8; }
+.icon-secondary { background: #e0eaf8; }
+.icon-protein   { background: #f0e8f8; }
+.icon-elisa     { background: #fef3d0; }
+.icon-chemical  { background: #fde8e0; }
+
+.item-body { flex: 1; min-width: 0; }
+.item-name {
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.item-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-id {
+  font-size: 11px;
+  font-family: 'Menlo', 'Courier New', monospace;
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+.item-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.temp-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.t4   { background: var(--temp4-bg);   color: var(--temp4); }
+.tn20 { background: var(--tempn20-bg); color: var(--tempn20); }
+.tn80 { background: var(--tempn80-bg); color: var(--tempn80); }
+.trt  { background: var(--temprt-bg);  color: var(--temprt); }
+
+.chevron { color: var(--dim); font-size: 16px; line-height: 1; }
+
+/* ── Empty / loading states ── */
+.state-msg {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.state-msg .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+.state-msg strong { color: var(--text); display: block; margin-bottom: 6px; font-size: 16px; }
+
+/* ── Detail sheet (bottom drawer) ── */
+.sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.sheet-overlay.open { display: block; }
+
+.sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  border-radius: 16px 16px 0 0;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  z-index: 101;
+  padding-bottom: var(--safe-bot);
+}
+.sheet.open { transform: translateY(0); }
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 10px auto 0;
+  flex-shrink: 0;
+}
+
+.sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+.sheet-title-wrap { min-width: 0; }
+.sheet-title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.sheet-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.sheet-close {
+  background: var(--border);
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 17px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  margin-top: 2px;
+}
+.sheet-close:active { background: #d0cdc8; }
+
+.sheet-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 20px;
+  flex: 1;
+}
+
+/* ── Detail card rows ── */
+.detail-section {
+  padding: 14px 20px 4px;
+}
+.detail-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 10px;
+}
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-label {
+  font-size: 13px;
+  color: var(--muted);
+  flex-shrink: 0;
+  max-width: 44%;
+}
+.detail-value {
+  font-size: 14px;
+  color: var(--text);
+  text-align: right;
+  word-break: break-word;
+}
+.detail-value.mono {
+  font-family: 'Menlo', 'Courier New', monospace;
+  font-size: 13px;
+  color: var(--accent);
+}
+.storage-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 0 20px 4px;
+  overflow: hidden;
+}
+.storage-block-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  padding: 10px 14px 6px;
+}
+.storage-block .detail-row {
+  padding: 8px 14px;
+}
+.storage-block .detail-row:last-child { border: none; }
+
+.notes-block {
+  margin: 0 20px;
+  background: #fffbec;
+  border: 1px solid #f0e8c0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #5a4a10;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="hdr">
+    <div class="hdr-title">Lab Reagents</div>
+    <div class="hdr-sub" id="hdr-sub">Loading…</div>
+  </div>
+
+  <div class="search-wrap">
+    <input class="search-input" type="search" id="search" placeholder="Search name, ID, target, vendor…" autocomplete="off" autocorrect="off" spellcheck="false">
+  </div>
+
+  <div class="filter-bar" id="filter-bar">
+    <button class="filter-btn active" data-tab="all" onclick="setFilter('all')">All <span class="filter-count" id="fc-all">0</span></button>
+    <button class="filter-btn" data-tab="primary" onclick="setFilter('primary')">Primary Ab <span class="filter-count" id="fc-primary">0</span></button>
+    <button class="filter-btn" data-tab="secondary" onclick="setFilter('secondary')">Secondary Ab <span class="filter-count" id="fc-secondary">0</span></button>
+    <button class="filter-btn" data-tab="protein" onclick="setFilter('protein')">Proteins <span class="filter-count" id="fc-protein">0</span></button>
+    <button class="filter-btn" data-tab="elisa" onclick="setFilter('elisa')">ELISA & Detection <span class="filter-count" id="fc-elisa">0</span></button>
+    <button class="filter-btn" data-tab="chemical" onclick="setFilter('chemical')">Chemicals <span class="filter-count" id="fc-chemical">0</span></button>
+  </div>
+
+  <div id="list-area"></div>
+</div>
+
+<!-- Detail sheet -->
+<div class="sheet-overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title-wrap">
+      <div class="sheet-title" id="sheet-title">—</div>
+      <div class="sheet-subtitle" id="sheet-subtitle">—</div>
+    </div>
+    <button class="sheet-close" onclick="closeSheet()">✕</button>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+// Path to reagents.json relative to this HTML file (same directory on GitHub).
+const JSON_PATH = 'reagents.json';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let DATA = { primary:[], secondary:[], protein:[], elisa:[], chemical:[] };
+let activeFilter = 'all';
+let searchQuery = '';
+
+// ── Tab metadata ──────────────────────────────────────────────────────────────
+const TAB_META = {
+  primary:   { label: 'Primary Ab',        icon: '🔬', iconClass: 'icon-primary',   nameKey: 'Antibody Name / Clone',  subKey: 'Antigen Specificity',        tempKey: 'Storage Temp', locKey: 'Location / Freezer', boxKey: 'Box Identifier' },
+  secondary: { label: 'Secondary Ab',      icon: '🧬', iconClass: 'icon-secondary',  nameKey: 'Antibody Name',          subKey: 'Primary Species Reactivity', tempKey: 'Storage Temp', locKey: 'Location / Freezer', boxKey: 'Box Identifier' },
+  protein:   { label: 'Recomb. Protein',   icon: '🧪', iconClass: 'icon-protein',    nameKey: 'Protein / Reagent Name', subKey: 'Target / Specificity',       tempKey: 'Storage Temp', locKey: 'Location / Freezer', boxKey: 'Box Identifier' },
+  elisa:     { label: 'ELISA & Detection', icon: '🩺', iconClass: 'icon-elisa',      nameKey: 'Kit / Reagent Name',     subKey: 'Analyte / Target',           tempKey: 'Storage Temp', locKey: 'Location / Cabinet', boxKey: 'Box / Shelf Identifier' },
+  chemical:  { label: 'Chemical',          icon: '⚗️', iconClass: 'icon-chemical',   nameKey: 'Chemical Name',          subKey: 'Chemical Class / Type',      tempKey: 'Storage Temp', locKey: 'Location / Cabinet', boxKey: 'Shelf / Box Identifier' },
+};
+
+// Field groups to show in the detail sheet per tab type
+const DETAIL_GROUPS = {
+  primary: [
+    { title: 'Identification', fields: ['Internal ID','Antibody Name / Clone','Antigen Specificity','Clone Type','Isotype','Host Species'] },
+    { title: 'Vendor & Lot',   fields: ['Company / Vendor','Catalog Number','Lot Number','Purchase Date','Expiration Date'] },
+    { title: 'Properties',     fields: ['Conjugate / Tag','Concentration','Amount / Volume','# Aliquots Remaining','Known Cross-Reactivity'] },
+    { title: 'Usage',          fields: ['Working Dilution(s)','Intended Application(s)'] },
+    { title: 'QC',             fields: ['Validated By','Validation Date','Source / Ordered By'] },
+  ],
+  secondary: [
+    { title: 'Identification', fields: ['Internal ID','Antibody Name','Primary Species Reactivity','Host Species','Isotype'] },
+    { title: 'Vendor & Lot',   fields: ['Company / Vendor','Catalog Number','Lot Number','Purchase Date','Expiration Date'] },
+    { title: 'Properties',     fields: ['Conjugate / Label','Adsorption / Specificity','Concentration','Amount / Volume','# Aliquots Remaining','Known Cross-Reactivity'] },
+    { title: 'Usage',          fields: ['Working Dilution(s)','Intended Application(s)'] },
+    { title: 'QC',             fields: ['Validated By','Validation Date','Source / Ordered By'] },
+  ],
+  protein: [
+    { title: 'Identification', fields: ['Internal ID','Protein / Reagent Name','Target / Specificity','Protein Class','MW (kDa)'] },
+    { title: 'Vendor & Lot',   fields: ['Company / Vendor','Catalog Number','Lot Number','Purchase Date','Expiration Date'] },
+    { title: 'Properties',     fields: ['Expression System','Conjugate / Modification','Concentration','Amount / Volume','# Aliquots Remaining','Known Reactivity'] },
+    { title: 'Usage',          fields: ['Working Concentration','Intended Application(s)'] },
+    { title: 'QC',             fields: ['Validated By','Validation Date','Source / Ordered By'] },
+  ],
+  elisa: [
+    { title: 'Identification', fields: ['Internal ID','Kit / Reagent Name','Analyte / Target','Assay Format','Species'] },
+    { title: 'Vendor & Lot',   fields: ['Company / Vendor','Catalog Number','Lot Number','Purchase Date','Expiration Date'] },
+    { title: 'Properties',     fields: ['Detection Method','Sensitivity / Range','Cross-Reactivity','Amount / Kit Size','# Kits / Aliquots'] },
+    { title: 'Usage',          fields: ['Working Dilution / Conc','Compatible Sample Types'] },
+    { title: 'QC',             fields: ['Validated By','Validation Date','Source / Ordered By'] },
+  ],
+  chemical: [
+    { title: 'Identification', fields: ['Internal ID','Chemical Name','CAS Number','Chemical Class / Type','Molecular Weight (g/mol)'] },
+    { title: 'Vendor & Lot',   fields: ['Company / Vendor','Catalog Number','Lot Number','Purchase Date','Expiration Date'] },
+    { title: 'Properties',     fields: ['Physical Form','Purity / Grade','Concentration / Strength','Amount / Volume','# Containers Remaining','Container Size'] },
+    { title: 'Usage',          fields: ['Solvent / Solubility Notes','Working Concentration / Dilution','Intended Application(s)'] },
+    { title: 'Safety',         fields: ['GHS Hazard Class(es)','Signal Word','Disposal Category','SDS Location / Link'] },
+    { title: 'Admin',          fields: ['Received / Logged By','Source / Ordered By','Storage Conditions'] },
+  ],
+};
+
+// ── Fetch data ────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const res = await fetch(JSON_PATH);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    DATA.primary   = json.primary   || [];
+    DATA.secondary = json.secondary || [];
+    DATA.protein   = json.protein   || [];
+    DATA.elisa     = json.elisa     || [];
+    DATA.chemical  = json.chemical  || [];
+    const total = Object.values(DATA).reduce((a,b) => a + b.length, 0);
+    document.getElementById('hdr-sub').textContent =
+      `${total} items · updated ${fmt(json.exported)}`;
+    updateCounts();
+    render();
+  } catch(err) {
+    document.getElementById('list-area').innerHTML = `
+      <div class="state-msg">
+        <div class="icon">⚠️</div>
+        <strong>Could not load reagents.json</strong>
+        Make sure reagents.json is in the same directory as this file and the site is served over HTTP (not file://).
+        <br><br><span style="font-size:12px;color:var(--dim)">${err.message}</span>
+      </div>`;
+    document.getElementById('hdr-sub').textContent = 'Error loading data';
+  }
+}
+
+function fmt(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  } catch { return iso; }
+}
+
+// ── Filter & search ───────────────────────────────────────────────────────────
+function setFilter(tab) {
+  activeFilter = tab;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  render();
+}
+
+document.getElementById('search').addEventListener('input', e => {
+  searchQuery = e.target.value.toLowerCase().trim();
+  render();
+});
+
+function getFiltered() {
+  const tabs = activeFilter === 'all' ? ['primary','secondary','protein','elisa','chemical'] : [activeFilter];
+  const results = [];
+  tabs.forEach(tab => {
+    const meta = TAB_META[tab];
+    DATA[tab].forEach(entry => {
+      if (!searchQuery) { results.push({ tab, entry }); return; }
+      const haystack = Object.values(entry).join(' ').toLowerCase();
+      if (haystack.includes(searchQuery)) results.push({ tab, entry });
+    });
+  });
+  return results;
+}
+
+function updateCounts() {
+  let total = 0;
+  ['primary','secondary','protein','elisa','chemical'].forEach(t => {
+    const n = DATA[t].length;
+    document.getElementById('fc-' + t).textContent = n;
+    total += n;
+  });
+  document.getElementById('fc-all').textContent = total;
+}
+
+// ── Render list ───────────────────────────────────────────────────────────────
+function tempCls(t) {
+  if (t === '4°C') return 't4';
+  if (t === '-20°C') return 'tn20';
+  if (t === '-80°C') return 'tn80';
+  if (t === 'RT') return 'trt';
+  return '';
+}
+
+function render() {
+  const filtered = getFiltered();
+  const area = document.getElementById('list-area');
+
+  if (!filtered.length) {
+    area.innerHTML = `<div class="state-msg"><div class="icon">🔍</div><strong>No results</strong>Try a different search or filter.</div>`;
+    return;
+  }
+
+  // Group by tab when showing all
+  let html = '';
+  if (activeFilter === 'all') {
+    const grouped = {};
+    filtered.forEach(({ tab, entry }) => {
+      if (!grouped[tab]) grouped[tab] = [];
+      grouped[tab].push(entry);
+    });
+    ['primary','secondary','protein','elisa','chemical'].forEach(tab => {
+      if (!grouped[tab]?.length) return;
+      const meta = TAB_META[tab];
+      html += `<div class="section-header">${meta.label} (${grouped[tab].length})</div>`;
+      grouped[tab].forEach(entry => { html += renderItem(tab, entry); });
+    });
+  } else {
+    filtered.forEach(({ tab, entry }) => { html += renderItem(tab, entry); });
+  }
+
+  area.innerHTML = html;
+}
+
+function renderItem(tab, entry) {
+  const meta = TAB_META[tab];
+  const name = entry[meta.nameKey] || '—';
+  const sub  = entry[meta.subKey]  || '';
+  const temp = entry[meta.tempKey] || '';
+  const loc  = entry[meta.locKey]  || '';
+  const box  = entry[meta.boxKey]  || '';
+  const id   = entry['Internal ID'] || '';
+  const locStr = [loc, box].filter(Boolean).join(' · ') || '—';
+  const cls  = tempCls(temp);
+  const idx  = encodeURIComponent(id + '|' + tab);
+
+  return `<div class="list-item" onclick="openSheet('${escAttr(tab)}','${escAttr(id)}')">
+    <div class="item-icon ${meta.iconClass}">${meta.icon}</div>
+    <div class="item-body">
+      <div class="item-name">${esc(name)}</div>
+      <div class="item-sub">${esc(locStr)}</div>
+      <div class="item-id">${esc(id)}</div>
+    </div>
+    <div class="item-right">
+      ${temp ? `<span class="temp-pill ${cls}">${esc(temp)}</span>` : ''}
+      <span class="chevron">›</span>
+    </div>
+  </div>`;
+}
+
+// ── Detail sheet ──────────────────────────────────────────────────────────────
+function openSheet(tab, id) {
+  const entry = DATA[tab].find(e => e['Internal ID'] === id);
+  if (!entry) return;
+
+  const meta = TAB_META[tab];
+  const name = entry[meta.nameKey] || '—';
+  const temp = entry[meta.tempKey] || '';
+  const loc  = entry[meta.locKey]  || '';
+  const box  = entry[meta.boxKey]  || '';
+
+  document.getElementById('sheet-title').textContent = name;
+  document.getElementById('sheet-subtitle').textContent = meta.label + (temp ? '  ·  ' + temp : '');
+
+  // Build body
+  let html = '';
+
+  // Storage block always first
+  html += `<div style="padding:14px 20px 10px">`;
+  html += `<div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;">Storage</div>`;
+  html += `<div class="storage-block">`;
+  if (temp) html += detailRow('Temperature', `<span class="temp-pill ${tempCls(temp)}">${esc(temp)}</span>`, true);
+  if (loc)  html += detailRow('Location', esc(loc));
+  if (box)  html += detailRow('Box / Shelf', esc(box));
+  if (!temp && !loc && !box) html += detailRow('Storage', '—');
+  html += `</div></div>`;
+
+  // Field groups
+  const groups = DETAIL_GROUPS[tab] || [];
+  groups.forEach(group => {
+    const rows = group.fields
+      .map(f => ({ label: f, value: entry[f] || '' }))
+      .filter(r => r.value);
+    if (!rows.length) return;
+
+    html += `<div class="detail-section">`;
+    html += `<div class="detail-section-title">${esc(group.title)}</div>`;
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;padding:0 14px">`;
+    rows.forEach(r => { html += detailRow(r.label, esc(r.value)); });
+    html += `</div></div>`;
+  });
+
+  // Notes
+  const notes = entry['Notes / Special Handling'] || '';
+  if (notes) {
+    html += `<div style="padding:4px 20px 10px">`;
+    html += `<div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;">Notes</div>`;
+    html += `<div class="notes-block">⚠️ ${esc(notes)}</div>`;
+    html += `</div>`;
+  }
+
+  document.getElementById('sheet-body').innerHTML = html;
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function detailRow(label, valueHtml, rawHtml = false) {
+  return `<div class="detail-row"><span class="detail-label">${esc(label)}</span><span class="detail-value">${rawHtml ? valueHtml : valueHtml}</span></div>`;
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Swipe down to close sheet
+let touchStartY = 0;
+document.getElementById('sheet').addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+document.getElementById('sheet').addEventListener('touchend', e => {
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (dy > 80) closeSheet();
+}, { passive: true });
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s) { return String(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
